@@ -16,19 +16,19 @@
         </div>
       </div>
       <div class="page__main__inventor">
-        <div class="page__main__inventor__cell" v-for="i in cellCount" :key="i">
-          <div class="page__main__inventor__cell__item">
+        <div class="page__main__inventor__cell" v-for="cell in inventar" :key="cell.id_in">
+          <div class="page__main__inventor__cell__item" v-if="cell.item.id_it" @click="openModal(cell.item)">
             <div class="page__main__inventor__cell__item__placeholder">
-              <div class="page__main__inventor__cell__item__placeholder__square" :style="{left: 0, bottom: 0, background: `linear-gradient(45deg, rgb(8,8,128) 0%, rgb(0,212,255) 100%)`}"></div>
-              <div class="page__main__inventor__cell__item__placeholder__square" :style="{right: 0, top: 0, zIndex: 2, background: `linear-gradient(45deg, rgb(8,8,128) 0%, rgba(0,212,255,0.85) 100%)`}"></div>
+              <div class="page__main__inventor__cell__item__placeholder__square" :style="{left: 0, bottom: 0, background: `linear-gradient(45deg, rgb(${cell.item.color?.split(',').map(n=>Number(n)*0.25).join(',')}) 0%, rgb(${cell.item.color}) 100%)`}"></div>
+              <div class="page__main__inventor__cell__item__placeholder__square" :style="{right: 0, top: 0, zIndex: 2, background: `linear-gradient(45deg, rgb(${cell.item.color?.split(',').map(n=>Number(n)*0.25).join(',')}) 0%, rgba(${cell.item.color},0.85) 100%)`}"></div>
             </div>
-            <div class="page__main__inventor__cell__item__count">{{ i }}</div>
+            <div class="page__main__inventor__cell__item__count">{{ cell.item.count }}</div>
           </div>
         </div>
         <div class="page__main__inventor__modal" v-if="isModalOpen">
           <div class="page__main__inventor__cell__item__placeholder  modal-placeholder">
-            <div class="page__main__inventor__cell__item__placeholder__square" :style="{left: 0, bottom: 0, background: `linear-gradient(45deg, rgb(8,8,128) 0%, rgb(0,212,255) 100%)`}"></div>
-            <div class="page__main__inventor__cell__item__placeholder__square" :style="{right: 0, top: 0, zIndex: 2, background: `linear-gradient(45deg, rgb(8,8,128) 0%, rgba(0,212,255,0.85) 100%)`}"></div>
+            <div class="page__main__inventor__cell__item__placeholder__square" :style="{left: 0, bottom: 0, background: `linear-gradient(45deg, rgb(${selectedItem.color?.split(',').map(n=>Number(n)*0.25).join(',')}) 0%, rgb(${selectedItem.color}) 100%)`}"></div>
+            <div class="page__main__inventor__cell__item__placeholder__square" :style="{right: 0, top: 0, zIndex: 2, background: `linear-gradient(45deg, rgb(${selectedItem.color?.split(',').map(n=>Number(n)*0.25).join(',')}) 0%, rgba(${selectedItem.color},0.85) 100%)`}"></div>
           </div>
           <div class="divider"></div>
           <div class="page__main__inventor__modal__info">
@@ -40,15 +40,15 @@
             <div class="skeleton" style="width: 33%; height: 7.5%; margin: 0 0 5% 0;"></div>
           </div>
           <div class="divider"></div>
-          <button class="page__main__inventor__modal__remove-button">Удалить предмет</button>
-          <div class="page__main__inventor__modal__change-menu">
-            <input type="number" class="page__main__inventor__modal__change-menu__input" placeholder="Введите количество">
+          <button class="page__main__inventor__modal__remove-button" @click="openModalFooter()">Удалить предмет</button>
+          <div class="page__main__inventor__modal__change-menu" v-if="isModalFooterOpen">
+            <input v-model="inputValue" type="number" class="page__main__inventor__modal__change-menu__input" placeholder="Введите количество">
             <div class="page__main__inventor__modal__change-menu__footer">
-              <button class="page__main__inventor__modal__change-menu__footer__cancel-button  footer-buttons">Отмена</button>
-              <button class="page__main__inventor__modal__change-menu__footer__apply-button  footer-buttons">Подтвердить</button>
+              <button class="page__main__inventor__modal__change-menu__footer__cancel-button  footer-buttons" @click="closeModalFooter()">Отмена</button>
+              <button class="page__main__inventor__modal__change-menu__footer__apply-button  footer-buttons" @click="changeItemCount()">Подтвердить</button>
             </div>
           </div>
-          <button class="close-button"></button>
+          <button class="close-button" @click="closeModal()"></button>
         </div>
       </div>
     </div>
@@ -60,15 +60,81 @@
 </template>
 
 <script setup lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, onBeforeMount } from 'vue';
 
 defineComponent({
   name: 'InventarPage',
 });
 
-const cellCount = 25;
-let isModalOpen = ref(true);
+interface Item {
+  id_it?: number;
+  color?: string;
+  count?: number;
+}
+interface Inventar {
+  id_in: number;
+  item: Item;
+}
 
+let inventar = ref<Inventar[]>([]);
+const cellCount: number = 25;
+let isModalOpen = ref<boolean>(false);
+let isModalFooterOpen = ref<boolean>(false);
+let selectedItem = ref<Item>({});
+let inputValue = ref<string>('');
+
+function fillInventarBaseData(){
+  for(let i=0; i<cellCount; i++){
+    inventar.value = [...inventar.value, {id_in: Number(i), item: {}}];
+  }
+  inventar.value[0] = {id_in: 0, item: {id_it: 5, color: '0,212,255', count: 5}};
+  inventar.value[3] = {id_in: 3, item: {id_it: 2, color: '0,174,76', count: 2}};
+  inventar.value[14] = {id_in: 14, item: {id_it: 10, color: '34,17,176', count: 12}};
+}
+function openModal(item: Item){
+  selectedItem.value = item;
+
+  isModalOpen.value = true;
+  closeModalFooter();
+}
+function closeModal(){
+  isModalOpen.value = false;
+  closeModalFooter();
+}
+function openModalFooter(){
+  isModalFooterOpen.value = true;
+}
+function closeModalFooter(){
+  isModalFooterOpen.value = false;
+  inputValue.value = '';
+}
+function changeItemCount(){
+  if(inputValue.value !== '' && Number(inputValue.value) >= 0){
+    const count = Number(inputValue.value);
+    let arr = inventar.value;
+    for(let cell of arr){
+      if(cell.item.id_it == selectedItem.value.id_it){
+        if(count == 0){
+          cell.item = {};
+        } else {
+          cell.item.count = count;
+        }
+        break;
+      }
+    }
+    inventar.value = arr;
+    // Another way
+    // inventar.value = inventar.value.map(cell => cell.item.id_it == selectedItem.value.id_it ? {...cell, item: {}} : cell);
+    // inventar.value = inventar.value.map(cell => cell.item.id_it == selectedItem.value.id_it ? {...cell, item: {...cell.item, count: count}} : cell);
+    closeModal();
+  } else {
+    inputValue.value = '';
+  }
+}
+
+onBeforeMount(() => {
+  fillInventarBaseData();
+})
 
 </script>
 
