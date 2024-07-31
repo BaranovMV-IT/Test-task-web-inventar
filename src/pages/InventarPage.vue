@@ -16,8 +16,8 @@
         </div>
       </div>
       <div class="page__main__inventor">
-        <div class="page__main__inventor__cell" v-for="cell in inventar" :key="cell.id_in">
-          <div class="page__main__inventor__cell__item" v-if="cell.item.id_it" @click="openModal(cell.item)">
+        <div class="page__main__inventor__cell" v-for="cell in inventar" :key="cell.id_in" :id="'cell'+cell.id_in" :style="{backgroundColor: cell.color}">
+          <div class="page__main__inventor__cell__item" draggable="true" v-if="cell.item.id_it" @click="openModal(cell.item)" @dragstart="e=>dragStart(e)" @drag="e=>drag(e, cell.item.id_it)" @dragend="e=>dragEnd(e, cell.item, cell.id_in)">
             <div class="page__main__inventor__cell__item__placeholder">
               <div class="page__main__inventor__cell__item__placeholder__square" :style="{left: 0, bottom: 0, background: `linear-gradient(45deg, rgb(${cell.item.color?.split(',').map(n=>Number(n)*0.25).join(',')}) 0%, rgb(${cell.item.color}) 100%)`}"></div>
               <div class="page__main__inventor__cell__item__placeholder__square" :style="{right: 0, top: 0, zIndex: 2, background: `linear-gradient(45deg, rgb(${cell.item.color?.split(',').map(n=>Number(n)*0.25).join(',')}) 0%, rgba(${cell.item.color},0.85) 100%)`}"></div>
@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineComponent, ref, onBeforeMount } from 'vue';
+import { defineComponent, ref, onBeforeMount, onMounted } from 'vue';
 
 defineComponent({
   name: 'InventarPage',
@@ -74,6 +74,11 @@ interface Item {
 interface Inventar {
   id_in: number;
   item: Item;
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+  color?: string;
 }
 
 let inventar = ref<Inventar[]>([]);
@@ -82,6 +87,14 @@ let isModalOpen = ref<boolean>(false);
 let isModalFooterOpen = ref<boolean>(false);
 let selectedItem = ref<Item>({});
 let inputValue = ref<string>('');
+
+let item = ref<any>();
+let offsetX = ref<number>(0);
+let offsetY = ref<number>(0);
+let clickX = ref<number>(0);
+let clickY = ref<number>(0);
+let width = ref<string>('');
+let height = ref<string>('');
 
 function fillInventarBaseData(){
   for(let i=0; i<cellCount; i++){
@@ -111,7 +124,7 @@ function closeModalFooter(){
 function changeItemCount(){
   if(inputValue.value !== '' && Number(inputValue.value) >= 0){
     const count = Number(inputValue.value);
-    let arr = inventar.value;
+    let arr = [...inventar.value];
     for(let cell of arr){
       if(cell.item.id_it == selectedItem.value.id_it){
         if(count == 0){
@@ -132,9 +145,105 @@ function changeItemCount(){
   }
 }
 
+function getCellsData(){
+  let data = [...inventar.value];
+  let cells = document.getElementsByClassName("page__main__inventor__cell");
+  offsetX.value = document.getElementsByClassName('page__main__inventor')[0].getBoundingClientRect().x;
+  offsetY.value = document.getElementsByClassName('page__main__inventor')[0].getBoundingClientRect().y;
+  for(let cell of cells){
+    let cords = cell.getBoundingClientRect();
+    for(let dt of data){
+      if("cell"+dt.id_in == cell.id){
+        dt.top = cords.top; 
+        dt.bottom = cords.bottom; 
+        dt.left = cords.left; 
+        dt.right = cords.right;
+      }
+    }
+  }
+  inventar.value = data;
+}
+function dragStart(event: DragEvent){
+  item.value = event.target;
+  clickX.value = event.offsetX;
+  clickY.value = event.offsetY;
+  if(item.value.style.width == ''){
+    width.value = item.value.getBoundingClientRect().width;
+    item.value.style.width = width.value + "px";
+  }
+  if(item.value.style.height == ''){
+    height.value = item.value.getBoundingClientRect().height;
+    item.value.style.height = height.value + "px";
+  }
+  item.value.style.position = 'absolute';
+  item.value.style.zIndex = '3';
+  event.dataTransfer?.setDragImage(item.value, 11111110, 10);
+}
+function drag(event: DragEvent, id: any){
+  item.value.style.left = event.pageX - offsetX.value - clickX.value + 'px';
+  item.value.style.top = event.pageY - offsetY.value - clickY.value + 'px';
+  let data = [...inventar.value];
+  for(let cell of data){
+    if(cell.left && cell.right && event.pageX>cell.left && event.pageX<cell.right){
+      if(cell.top && cell.bottom && event.pageY>cell.top && event.pageY<cell.bottom){
+        let pr = false;
+            
+        if(cell.item.id_it == undefined){
+          pr = true;
+        }
+        if(pr){
+          cell.color = "rgba(255,255,255,0.05)";
+        }
+      } else {
+        cell.color = "rgb(38,38,38)";
+      }
+    } else {
+      cell.color = "rgb(38,38,38)";
+    }
+    inventar.value = data;
+  }
+}
+function dragEnd(event: DragEvent, isNewItem: Item, cellId: number){
+  item.value.style.position = '';
+  item.value.style.left = '';
+  item.value.style.top = '';
+  item.value.style.zIndex = '1';
+  if(width.value != ""){
+    item.value.style.width = "";
+  }
+  if(height.value != ""){
+    item.value.style.height = "";
+  }
+  let data = [...inventar.value];
+  for(let cell of data){
+    if(cell.left && cell.right && event.pageX>cell.left && event.pageX<cell.right){
+      if(cell.top && cell.bottom && event.pageY>cell.top && event.pageY<cell.bottom){
+        let pr = false;
+        
+        if(cell.item.id_it){
+          pr = true;
+        }
+        if(!pr){
+          for(let cll of data){
+            if(cll.id_in == cellId){
+              cll.item = {};
+              break;
+            }
+          }
+          cell.item = isNewItem;
+        }
+      }
+    }
+  }
+  inventar.value = data;
+}
+
 onBeforeMount(() => {
   fillInventarBaseData();
-})
+});
+onMounted(() => {
+  getCellsData();
+});
 
 </script>
 
@@ -195,6 +304,7 @@ onBeforeMount(() => {
         border-bottom: calc(100vw / 960) solid rgb(77,77,77);
         &__item {
           position: relative;
+          width: 100%;
           height: 100%;
           display: flex;
           justify-content: center;
